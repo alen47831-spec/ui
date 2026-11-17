@@ -5286,7 +5286,7 @@ do
                     local controlFrame = Instance.new('Frame')
                     controlFrame.BackgroundTransparency = 1
                     controlFrame.Name = '#control'
-                    controlFrame.Size = UDim2.new(1, 0, 0, 20)
+                    controlFrame.Size = UDim2.new(1, 0, 0, 22)
                     controlFrame.Visible = true
                     controlFrame.ZIndex = 34
                     controlFrame.ClipsDescendants = true
@@ -5296,7 +5296,7 @@ do
                     local clickSensor = Instance.new('TextButton')
                     clickSensor.BackgroundTransparency = 1
                     clickSensor.Name = '#click-sensor'
-                    clickSensor.Size = UDim2.fromScale(1, 1)
+                    clickSensor.Size = UDim2.new(1, 0, 0, 20)
                     clickSensor.Text = ''
                     clickSensor.TextTransparency = 1
                     clickSensor.ZIndex = 35
@@ -5366,7 +5366,7 @@ do
                     local listFrame = Instance.new('Frame')
                     listFrame.BackgroundColor3 = theme.Button1
                     listFrame.Name = '#list'
-                    listFrame.Position = UDim2.fromOffset(0, 22)
+                    listFrame.Position = UDim2.fromOffset(0, 20)
                     listFrame.Size = UDim2.new(1, 0, 0, 0)
                     listFrame.Visible = false
                     listFrame.ZIndex = 40
@@ -5396,9 +5396,10 @@ do
                     listPad.PaddingBottom = UDim.new(0, 2)
                     listPad.Parent = listFrame
 
+                    instances.controlFrame = controlFrame
+                    instances.clickSensor = clickSensor
                     instances.label = label
                     instances.valueLabel = valueLabel
-                    instances.clickSensor = clickSensor
                     instances.chevron = chevron
                     instances.listFrame = listFrame
                     instances.listLayout = listLayout
@@ -5412,10 +5413,19 @@ do
                 new.selected = nil
                 new.open = false
                 new.signals = {}
-                new.instances = {}
-                for k, v in pairs(self.instances) do
-                    new.instances[k] = v:Clone()
-                end
+                -- Clone the whole control frame so the parent/child hierarchy
+                -- (clickSensor -> label/valueLabel/chevron, controlFrame -> list)
+                -- is preserved. Cloning each instance separately drops Parent links.
+                local cfClone = self.instances.controlFrame:Clone()
+                new.instances = {
+                    controlFrame = cfClone,
+                    clickSensor = cfClone:FindFirstChild('#click-sensor'),
+                    label = cfClone:FindFirstChild('#click-sensor'):FindFirstChild('#label'),
+                    valueLabel = cfClone:FindFirstChild('#click-sensor'):FindFirstChild('#value'),
+                    chevron = cfClone:FindFirstChild('#click-sensor'):FindFirstChild('#chevron'),
+                    listFrame = cfClone:FindFirstChild('#list'),
+                    listLayout = cfClone:FindFirstChild('#list'):FindFirstChild('#layout'),
+                }
                 new.instances.clickSensor.MouseButton1Click:Connect(function()
                     new:toggle()
                 end)
@@ -5468,8 +5478,6 @@ do
                         self:setOpen(false)
                     end)
                 end
-                local n = #options
-                tween(list, {Size = UDim2.new(1, 0, 0, n * 20 + 4)}, 0.15, 2)
                 return self
             end
 
@@ -5479,7 +5487,7 @@ do
                 self.instances.valueLabel.Text = s
                 self.instances.valueLabel.TextColor3 = (value == nil) and theme.TextDim or theme.Primary
                 local list = self.instances.listFrame
-                for i, c in ipairs(list:GetChildren()) do
+                for _, c in ipairs(list:GetChildren()) do
                     if (c:IsA('TextButton')) then
                         if (c.Text == s) then
                             c.TextColor3 = theme.Primary
@@ -5502,15 +5510,16 @@ do
                 local list = self.instances.listFrame
                 local chevron = self.instances.chevron
                 local ctrl = self.instances.controlFrame
+                local n = #self.options
+                local listH = n * 20 + 4
                 if (state) then
                     list.Visible = true
-                    local n = #self.options
-                    tween(list, {Size = UDim2.new(1, 0, 0, n * 20 + 4)}, 0.15, 2)
-                    tween(ctrl, {Size = UDim2.new(1, 0, 0, 20 + n * 20 + 4)}, 0.15, 2)
+                    ctrl.Size = UDim2.new(1, 0, 0, 22 + listH)
+                    tween(list, {Size = UDim2.new(1, 0, 0, listH)}, 0.15, 2)
                     tween(chevron, {Rotation = 180}, 0.15, 2)
                 else
                     tween(list, {Size = UDim2.new(1, 0, 0, 0)}, 0.15, 2)
-                    tween(ctrl, {Size = UDim2.new(1, 0, 0, 20)}, 0.15, 2)
+                    tween(ctrl, {Size = UDim2.new(1, 0, 0, 22)}, 0.15, 2)
                     tween(chevron, {Rotation = 0}, 0.15, 2)
                     task.delay(0.16, function()
                         if (not self.open) then list.Visible = false end
@@ -5530,11 +5539,6 @@ do
             end
             dropdown.getText = function(self)
                 return self.instances.label.Text
-            end
-
-            do
-                local template = dropdown:new()
-                dropdown._template = template
             end
 
             elemClasses.section.addDropdown = function(self, settings)
